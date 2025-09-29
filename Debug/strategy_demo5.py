@@ -1,3 +1,15 @@
+# demo.py
+import sys
+import os
+
+# 获取当前脚本(demo.py)所在的目录（即Debug目录）
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# 获取上层目录（即project目录，因为Debug的父目录是project）
+parent_dir = os.path.dirname(current_dir)
+# 将上层目录添加到Python的模块搜索路径中
+sys.path.append(parent_dir)
+print(parent_dir)
+
 import json
 from typing import Dict, TypedDict
 
@@ -56,11 +68,11 @@ if __name__ == "__main__":
 
     请注意，demo训练预测都用的是同一份数据，这是不合理的，仅仅是为了演示
     """
-    code = "sz.000001"
-    begin_time = "2018-01-01"
-    end_time = None
-    data_src = DATA_SRC.BAO_STOCK
-    lv_list = [KL_TYPE.K_DAY]
+    code = "MES"
+    begin_time = "20240722010800000"
+    end_time = "20250928235900000"
+    data_src = DATA_SRC.CSV
+    lv_list = [KL_TYPE.K_1M]
 
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
@@ -93,6 +105,7 @@ if __name__ == "__main__":
     for chan_snapshot in chan.step_load():
         last_klu = chan_snapshot[0][-1][-1]
         bsp_list = chan_snapshot.get_latest_bsp()
+        print(bsp_list)
         if not bsp_list:
             continue
         last_bsp = bsp_list[0]
