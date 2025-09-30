@@ -69,7 +69,7 @@ if __name__ == "__main__":
     请注意，demo训练预测都用的是同一份数据，这是不合理的，仅仅是为了演示
     """
     code = "MES"
-    begin_time = "20240722010800000"
+    begin_time = "20190505220000000"
     end_time = "20250928235900000"
     data_src = DATA_SRC.CSV
     lv_list = [KL_TYPE.K_1M]
@@ -105,7 +105,6 @@ if __name__ == "__main__":
     for chan_snapshot in chan.step_load():
         last_klu = chan_snapshot[0][-1][-1]
         bsp_list = chan_snapshot.get_latest_bsp()
-        print(bsp_list)
         if not bsp_list:
             continue
         last_bsp = bsp_list[0]
@@ -141,12 +140,13 @@ if __name__ == "__main__":
         plot_marker[feature_info["open_time"].to_str()] = ("√" if label else "×", "down" if feature_info["is_buy"] else "up")
     fid.close()
 
+    # 将特征与对应索引保存下来，下次可直接对其，防止特征与索引不对应
     with open("feature.meta", "w") as fid:
         # meta保存下来，实盘预测时特征对齐用
         fid.write(json.dumps(feature_meta))
 
     # 画图检查label是否正确
-    plot(chan, plot_marker)
+    # plot(chan, plot_marker)
 
     # load sample file & train model
     dtrain = xgb.DMatrix("feature.libsvm?format=libsvm")  # load sample

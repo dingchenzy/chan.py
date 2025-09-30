@@ -1,3 +1,14 @@
+import sys
+import os
+
+# 获取当前脚本(demo.py)所在的目录（即Debug目录）
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# 获取上层目录（即project目录，因为Debug的父目录是project）
+parent_dir = os.path.dirname(current_dir)
+# 将上层目录添加到Python的模块搜索路径中
+sys.path.append(parent_dir)
+print(parent_dir)
+
 import json
 from typing import Dict, TypedDict
 
@@ -10,12 +21,38 @@ from ChanConfig import CChanConfig
 from ChanModel.Features import CFeatures
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE
 from Common.CTime import CTime
+from Plot.PlotDriver import CPlotDriver
 
 
 class T_SAMPLE_INFO(TypedDict):
     feature: CFeatures
     is_buy: bool
     open_time: CTime
+
+
+def plot(chan, plot_marker):
+    plot_config = {
+        "plot_kline": True,
+        "plot_bi": True,
+        "plot_seg": True,
+        "plot_zs": True,
+        "plot_bsp": True,
+        "plot_marker": True,
+    }
+    plot_para = {
+        "figure": {
+            "x_range": 400,
+        },
+        "marker": {
+            "markers": plot_marker
+        }
+    }
+    plot_driver = CPlotDriver(
+        chan,
+        plot_config=plot_config,
+        plot_para=plot_para,
+    )
+    plot_driver.save2img("test.png")
 
 
 def predict_bsp(model: xgb.Booster, last_bsp: CBS_Point, meta: Dict[str, int]):
@@ -34,7 +71,7 @@ if __name__ == "__main__":
     本demo主要演示如何在实盘中把策略产出的买卖点，对接到demo5中训练好的离线模型上
     """
     code = "MES"
-    begin_time = "20190505220000000"
+    begin_time = "20200320220000000"
     end_time = "20200403081400000"
     data_src = DATA_SRC.CSV
     lv_list = [KL_TYPE.K_1M]
@@ -58,6 +95,8 @@ if __name__ == "__main__":
     meta = json.load(open("feature.meta", "r"))
 
     treated_bsp_idx = set()
+    plot_marker = {}  # 存储绘图标记
+    
     for chan_snapshot in chan.step_load():
         # 策略逻辑要对齐demo5
         last_klu = chan_snapshot[0][-1][-1]
@@ -71,6 +110,25 @@ if __name__ == "__main__":
             continue
 
         last_bsp.features.add_feat(stragety_feature(last_klu))  # 开仓K线特征
-        # 买卖点打分，应该和demo5最后的predict结果完全一致才对
-        print(last_bsp.klu.time, predict_bsp(model, last_bsp, meta))
+        
+        # 买卖点打分
+        score = predict_bsp(model, last_bsp, meta)[0]
+        
+        # 根据分数判断有效性（使用0.5作为阈值）
+        is_valid = score > 0.3
+        marker_text = f"{'√' if is_valid else '×'}\n{score:.3f}"
+        direction = "down" if last_bsp.is_buy else "up"
+        
+        # 记录到plot_marker中
+        plot_marker[last_bsp.klu.time.to_str()] = (marker_text, direction)
+        
+        print(f"{last_bsp.klu.time} - Score: {score:.4f} - {'BUY' if last_bsp.is_buy else 'SELL'} - {'VALID' if is_valid else 'INVALID'}")
         treated_bsp_idx.add(last_bsp.klu.idx)
+
+    # 绘制图表
+    if plot_marker:
+        print(f"\nTotal trading points: {len(plot_marker)}")
+        print("Generating plot...")
+        plot(chan, plot_marker)
+    else:
+        print("No trading points to plot")
