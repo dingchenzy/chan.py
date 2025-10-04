@@ -41,7 +41,7 @@ def plot(chan, plot_marker):
     }
     plot_para = {
         "figure": {
-            "x_range": 400,
+            "x_range": 3000,
         },
         "marker": {
             "markers": plot_marker
@@ -71,10 +71,10 @@ if __name__ == "__main__":
     本demo主要演示如何在实盘中把策略产出的买卖点，对接到demo5中训练好的离线模型上
     """
     code = "MES"
-    begin_time = "20200320220000000"
-    end_time = "20200403081400000"
+    begin_time = "20250928220000000"
+    end_time = "20251003205500000"
     data_src = DATA_SRC.CSV
-    lv_list = [KL_TYPE.K_1M]
+    lv_list = [KL_TYPE.K_30M, KL_TYPE.K_5M]
 
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
@@ -91,8 +91,8 @@ if __name__ == "__main__":
     )
 
     model = xgb.Booster()
-    model.load_model("model.json")
-    meta = json.load(open("feature.meta", "r"))
+    model.load_model("backup_model/model.json")
+    meta = json.load(open("backup_model/feature.meta", "r"))
 
     treated_bsp_idx = set()
     plot_marker = {}  # 存储绘图标记
@@ -100,7 +100,7 @@ if __name__ == "__main__":
     for chan_snapshot in chan.step_load():
         # 策略逻辑要对齐demo5
         last_klu = chan_snapshot[0][-1][-1]
-        bsp_list = chan_snapshot.get_latest_bsp()
+        bsp_list = chan_snapshot.get_latest_bsp(idx=0)
         if not bsp_list:
             continue
         last_bsp = bsp_list[0]

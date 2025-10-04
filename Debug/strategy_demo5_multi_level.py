@@ -21,6 +21,7 @@ from ChanModel.Features import CFeatures
 from Common.CEnum import AUTYPE, DATA_SRC, KL_TYPE
 from Common.CTime import CTime
 from Plot.PlotDriver import CPlotDriver
+from DataAPI.csvAPI import CSV_API
 
 
 class T_SAMPLE_INFO(TypedDict):
@@ -58,8 +59,40 @@ def stragety_feature(last_klu):
     return {
         "open_klu_rate": (last_klu.close - last_klu.open)/last_klu.open,
     }
+    
+def align_klu_by_time(base_klu, kl_dict: Dict, lv_list: list):
 
+    """
+    根据60分钟K线的时间，对齐其他级别K线
+    返回对应时间窗口内的K线列表
+    使用上根K线的结束时间和当前K线的结束时间之间的K线组成
+    确保父子级别K线在同一天内，避免时间不一致错误
+    """
+    aligned = {KL_TYPE.K_60M: [base_klu]}
 
+    # 获取时间范围：从上根K线的结束时间到当前K线的结束时间
+    if base_klu.pre is not None:
+        base_begin = base_klu.pre.time
+    else:
+        # 如果没有前一根K线，使用当前K线时间作为开始时间
+        base_begin = base_klu.time
+    base_end = base_klu.time
+    
+    # 获取基准K线的日期，用于过滤同一天的K线
+    base_date = base_klu.time
+    
+    for lv in lv_list:
+        if lv == KL_TYPE.K_60M:
+            continue
+        aligned[lv] = []
+        for klu in kl_dict[lv]:
+            # 检查时间范围和日期一致性
+            if (klu.time > base_begin and klu.time <= base_end and
+                klu.time.year == base_date.year and 
+                klu.time.month == base_date.month and 
+                klu.time.day == base_date.day):
+                aligned[lv].append(klu)
+    return aligned
 if __name__ == "__main__":
     """
     本demo主要演示如何记录策略产出的买卖点的特征
@@ -72,7 +105,8 @@ if __name__ == "__main__":
     begin_time = "20190505220000000"
     end_time = "20250928235900000"
     data_src = DATA_SRC.CSV
-    lv_list = [KL_TYPE.K_5M]
+    # 多级别：1m,5m,15m,30m,60m,240m
+    lv_list = [KL_TYPE.K_60M, KL_TYPE.K_30M,  KL_TYPE.K_15M, KL_TYPE.K_5M, KL_TYPE.K_1M]
 
     config = CChanConfig({
         "trigger_step": True,  # 打开开关！
@@ -87,6 +121,10 @@ if __name__ == "__main__":
         "bs_type": '1,2,3a,1p,2s,3b',
         "print_warning": True,
         "zs_algo": "normal",
+        "print_err_time": True,
+        "kl_data_check": True,
+        "max_kl_inconsistent_cnt": 1000,
+        "max_kl_misalgin_cnt": 1000,
     })
 
     chan = CChan(
@@ -100,7 +138,51 @@ if __name__ == "__main__":
     )
 
     bsp_dict: Dict[int, T_SAMPLE_INFO] = {}  # 存储策略产出的bsp的特征
+    
+    CSV_API.do_init()
+    data_src_1h = CSV_API(code, k_type=KL_TYPE.K_60M, begin_date=begin_time, end_date=end_time, autype=AUTYPE.QFQ)
+    data_src_30m = CSV_API(code, k_type=KL_TYPE.K_30M, begin_date=begin_time, end_date=end_time, autype=AUTYPE.QFQ)
+    kl_30m_all = list(data_src_30m.get_kl_data())
+    
+    data_src_15m = CSV_API(code, k_type=KL_TYPE.K_15M, begin_date=begin_time, end_date=end_time, autype=AUTYPE.QFQ)
+    kl_15m_all = list(data_src_15m.get_kl_data())
+    
+    data_src_5m = CSV_API(code, k_type=KL_TYPE.K_5M, begin_date=begin_time, end_date=end_time, autype=AUTYPE.QFQ)
+    kl_5m_all = list(data_src_5m.get_kl_data())
+    
+    data_src_1m = CSV_API(code, k_type=KL_TYPE.K_1M, begin_date=begin_time, end_date=end_time, autype=AUTYPE.QFQ)
+    kl_1m_all = list(data_src_1m.get_kl_data())
+    
+    # 建立K线之间的前后关系
+    def setup_kline_links(kl_list):
+        """为K线列表建立前后链接关系"""
+        for i in range(1, len(kl_list)):
+            kl_list[i].set_pre_klu(kl_list[i-1])
+    
+    # 为所有级别的K线建立链接关系
+    kl_60m_all = list(data_src_1h.get_kl_data())
+    setup_kline_links(kl_60m_all)
+    setup_kline_links(kl_30m_all)
+    setup_kline_links(kl_15m_all)
+    setup_kline_links(kl_5m_all)
+    setup_kline_links(kl_1m_all)
 
+    # 组织成字典方便对齐
+    kl_dict = {
+        KL_TYPE.K_60M: kl_60m_all,
+        KL_TYPE.K_30M: kl_30m_all,
+        KL_TYPE.K_15M: kl_15m_all,
+        KL_TYPE.K_5M: kl_5m_all,
+        KL_TYPE.K_1M: kl_1m_all,
+    }
+    
+    # 按60分钟级别逐根触发，并对齐其他级别K线
+    for klu_60m in kl_dict[KL_TYPE.K_60M]:
+        aligned_klu = align_klu_by_time(klu_60m, kl_dict, lv_list)
+        chan.trigger_load(aligned_klu)
+    
+    CSV_API.do_close()
+    
     # 跑策略，保存买卖点的特征
     for chan_snapshot in chan.step_load():
         last_klu = chan_snapshot[0][-1][-1]
@@ -109,27 +191,19 @@ if __name__ == "__main__":
             continue
         last_bsp = bsp_list[0]
 
-        cur_lv_chan = chan_snapshot[0]  # 获取当前级别的K线列表（第0级别，即5分钟级别）
-        
-        # 判断买卖点是否满足交易条件：
-        # 1. last_bsp.klu.idx not in bsp_dict: 该买卖点尚未被记录过（避免重复交易）
-        # 2. cur_lv_chan[-2].idx == last_bsp.klu.klc.idx: 买卖点所在的合并K线是倒数第二根K线
-        #    这意味着买卖点分形已经确认（第三元素已出现），可以进行交易
+        cur_lv_chan = chan_snapshot[0]
         if last_bsp.klu.idx not in bsp_dict and cur_lv_chan[-2].idx == last_bsp.klu.klc.idx:
             # 假如策略是：买卖点分形第三元素出现时交易
-            # 将买卖点信息存储到字典中，用于后续特征分析和模型训练
             bsp_dict[last_bsp.klu.idx] = {
-                "feature": last_bsp.features,  # 买卖点的特征数据
-                "is_buy": last_bsp.is_buy,     # 是否为买点（True）或卖点（False）
-                "open_time": last_klu.time,    # 开仓时间（当前最新K线的时间）
+                "feature": last_bsp.features,
+                "is_buy": last_bsp.is_buy,
+                "open_time": last_klu.time,
             }
-            # 为该买卖点添加策略特征（基于开仓K线的特征）
             bsp_dict[last_bsp.klu.idx]['feature'].add_feat(stragety_feature(last_klu))  # 开仓K线特征
-            # 打印买卖点信息：时间和买卖方向
             print(last_bsp.klu.time, last_bsp.is_buy)
 
     # 生成libsvm样本特征
-    bsp_academy = [bsp.klu.idx for bsp in chan.get_latest_bsp(number=0)]
+    bsp_academy = [bsp.klu.idx for bsp in chan.get_latest_bsp(idx=0)]
     feature_meta = {}  # 特征meta
     cur_feature_idx = 0
     plot_marker = {}
@@ -154,7 +228,7 @@ if __name__ == "__main__":
         fid.write(json.dumps(feature_meta))
 
     # 画图检查label是否正确
-    plot(chan, plot_marker)
+    # plot(chan, plot_marker)
 
     # load sample file & train model
     dtrain = xgb.DMatrix("feature.libsvm?format=libsvm")  # load sample
