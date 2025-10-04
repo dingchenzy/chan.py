@@ -21,23 +21,23 @@ class CZS(Generic[LINE_TYPE]):
         if lst is None:
             return
 
-        self.__begin: CKLine_Unit = lst[0].get_begin_klu()
-        self.__begin_bi: LINE_TYPE = lst[0]  # 中枢内部的笔
+        self.__begin: CKLine_Unit = lst[0].get_begin_klu()  # 开始k线
+        self.__begin_bi: LINE_TYPE = lst[0]  # 中枢内部的笔，开始笔
 
-        # self.__low = None
-        # self.__high = None
+        # self.__low = None     # 中枢的低点，其他方法中实现
+        # self.__high = None    # 中枢的高点，其他方法中实现
         # self.__mid = None
         self.update_zs_range(lst)
 
         # self.__end: CKLine_Unit = None
         # self.__end_bi: CBi = None  # 中枢内部的笔
-        self.__peak_high = float("-inf")
-        self.__peak_low = float("inf")
+        self.__peak_high = float("-inf")    # 参与中枢笔的高点
+        self.__peak_low = float("inf")  # 参与中枢笔的低点
         for item in lst:
             self.update_zs_end(item)
 
         self.__bi_in: Optional[LINE_TYPE] = None  # 进中枢那一笔
-        self.__bi_out: Optional[LINE_TYPE] = None  # 出中枢那一笔
+        self.__bi_out: Optional[LINE_TYPE] = None  # 出中枢那一笔，不一定存在
 
         self.__bi_lst: List[LINE_TYPE] = []  # begin_bi~end_bi之间的笔，在update_zs_in_seg函数中更新
 
@@ -48,7 +48,7 @@ class CZS(Generic[LINE_TYPE]):
     def is_sure(self): return self.__is_sure
 
     @property
-    def sub_zs_lst(self): return self.__sub_zs_lst
+    def sub_zs_lst(self): return self.__sub_zs_lst  # 合并后的中枢list
 
     @property
     def begin(self): return self.__begin

@@ -26,10 +26,9 @@ class CKLine_Unit:
 
         self.check(autofix)
 
-        self.trade_info = CTradeInfo(kl_dict)
+        self.trade_info = CTradeInfo(kl_dict)   # 存储成交量 换手率 成交额
 
-        self.demark: CDemarkIndex = CDemarkIndex()
-
+        self.demark: CDemarkIndex = CDemarkIndex()  # 存储 Demark 指标相关数据（如 TD 序列、倒计时等）
         self.sub_kl_list = []  # 次级别KLU列表
         self.sup_kl: Optional[CKLine_Unit] = None  # 指向更高级别KLU
 

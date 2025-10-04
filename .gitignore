@@ -11,3 +11,7 @@ cos_config.yaml
 MES_1m.csv
 MNQ_1m.csv
 feature*
+*.csv
+*.png
+*.json
+*.libsvm

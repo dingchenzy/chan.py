@@ -10,10 +10,10 @@ LINE_TYPE = TypeVar('LINE_TYPE', CBi, CSeg)
 
 class CBS_Point(Generic[LINE_TYPE]):
     def __init__(self, bi: LINE_TYPE, is_buy, bs_type: BSP_TYPE, relate_bsp1: Optional['CBS_Point'], feature_dict=None):
-        self.bi: LINE_TYPE = bi
-        self.klu = bi.get_end_klu()
+        self.bi: LINE_TYPE = bi # 记录的买卖点进入笔
+        self.klu = bi.get_end_klu() # 记录发生买卖点的k线
         self.is_buy = is_buy
-        self.type: List[BSP_TYPE] = [bs_type]
+        self.type: List[BSP_TYPE] = [bs_type]   # 记录买卖点类型
         self.relate_bsp1 = relate_bsp1
 
         self.bi.bsp = self  # type: ignore

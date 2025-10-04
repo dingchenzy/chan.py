@@ -21,6 +21,7 @@ if __name__ == "__main__":
         "min_zs_cnt": 0,
         "bs1_peak": False,
         "macd_algo": "peak",
+        "max_bs2_rate": 0.618,
         "bs_type": '1,2,3a,1p,2s,3b',
         "print_warning": True,
         "zs_algo": "normal",

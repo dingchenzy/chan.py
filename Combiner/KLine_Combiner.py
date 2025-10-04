@@ -9,7 +9,7 @@ from .Combine_Item import CCombine_Item
 
 T = TypeVar('T')
 
-
+# 用的是特征序列来合并k线
 class CKLine_Combiner(Generic[T]):
     def __init__(self, kl_unit: T, _dir):
         item = CCombine_Item(kl_unit)
@@ -20,8 +20,8 @@ class CKLine_Combiner(Generic[T]):
 
         self.__lst: List[T] = [kl_unit]  # 本级别每一根单位K线
 
-        self.__dir = _dir
-        self.__fx = FX_TYPE.UNKNOWN
+        self.__dir = _dir   
+        self.__fx = FX_TYPE.UNKNOWN # 分顶分型底分型
         self.__pre: Optional[Self] = None
         self.__next: Optional[Self] = None
 

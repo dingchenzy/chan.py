@@ -263,35 +263,87 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
         real_bsp1: Optional[CBS_Point],
         BSP_CONF: CPointConfig,
     ):
+        """
+        处理类二买卖点（T2S）的识别与生成。
+        
+        逻辑概述：
+        1. 从 bsp2_bi 开始，以步长 2 向后遍历 bi_list，寻找与 bsp2_bi 有价格重叠的笔。
+        2. 重叠区域（箱体）一旦确定，后续笔必须继续与该箱体重叠，否则终止。
+        3. 同时检查：
+           - 是否突破 bsp1 的极值（防止破坏原结构）
+           - 回调/反弹幅度是否超过允许阈值
+           - 级别是否超限
+        4. 满足全部条件则生成 T2S 信号，并记录相关特征。
+        
+        参数说明：
+        - seg_list: 段列表，用于段索引合法性判断
+        - bi_list: 笔列表
+        - bsp2_bi: 基准笔（T2 所在笔）
+        - break_bi: 破坏笔（用于计算回撤率）
+        - real_bsp1: 对应的 T1 买卖点（如有）
+        - BSP_CONF: 买卖点配置对象
+        """
+        # 初始偏移量，从 bsp2_bi 后第 2 根笔开始寻找
         bias = 2
+        # 记录重叠箱体的上下沿，初始为空
         _low, _high = None, None
+        
+        # 循环向后寻找符合条件的类二买卖点
         while bsp2_bi.idx + bias < len(bi_list):  # 计算类二
             bsp2s_bi = bi_list[bsp2_bi.idx + bias]
+            # 确保笔已关联段索引，避免后续逻辑出错
             assert bsp2s_bi.seg_idx is not None and bsp2_bi.seg_idx is not None
+            
+            # 级别限制：bias/2 表示当前类二级别，超过配置上限则终止
             if BSP_CONF.max_bsp2s_lv is not None and bias/2 > BSP_CONF.max_bsp2s_lv:
                 break
-            if bsp2s_bi.seg_idx != bsp2_bi.seg_idx and (bsp2s_bi.seg_idx < len(seg_list)-1 or bsp2s_bi.seg_idx - bsp2_bi.seg_idx >= 2 or seg_list[bsp2_bi.seg_idx].is_sure):
+            
+            # 段跨越检查：如果新笔段索引与基准段不同，需满足一定条件才允许继续
+            if bsp2s_bi.seg_idx != bsp2_bi.seg_idx and (
+                bsp2s_bi.seg_idx < len(seg_list)-1 or  # 新笔段非最后一段
+                bsp2s_bi.seg_idx - bsp2_bi.seg_idx >= 2 or  # 跨越超过两段
+                seg_list[bsp2_bi.seg_idx].is_sure  # 原段已确认
+            ):
                 break
+            
+            # 第一次遇到候选笔：建立重叠箱体
             if bias == 2:
+                # 若无价格重叠，直接终止
                 if not has_overlap(bsp2_bi._low(), bsp2_bi._high(), bsp2s_bi._low(), bsp2s_bi._high()):
                     break
+                # 初始化箱体上下沿
                 _low = max([bsp2_bi._low(), bsp2s_bi._low()])
                 _high = min([bsp2_bi._high(), bsp2s_bi._high()])
-            elif not has_overlap(_low, _high, bsp2s_bi._low(), bsp2s_bi._high()):
-                break
-
+            else:
+                # 后续笔必须与已有箱体重叠，否则终止
+                if not has_overlap(_low, _high, bsp2s_bi._low(), bsp2s_bi._high()):
+                    break
+            
+            # 检查是否破坏原 bsp1 结构（突破极值）
             if bsp2s_break_bsp1(bsp2s_bi, break_bi):
                 break
-            retrace_rate = abs(bsp2s_bi.get_end_val()-break_bi.get_end_val())/break_bi.amp()
+            
+            # 计算回撤/反弹幅度
+            retrace_rate = abs(bsp2s_bi.get_end_val() - break_bi.get_end_val()) / break_bi.amp()
+            # 超过允许阈值则终止
             if retrace_rate > BSP_CONF.max_bs2_rate:
                 break
+            
+            # 构造特征字典，用于后续分析或展示
             feature_dict = {
-                'bsp2s_retrace_rate': retrace_rate,
-                'bsp2s_break_bi_amp': break_bi.amp(),
-                'bsp2s_bi_amp': bsp2s_bi.amp(),
-                'bsp2s_lv': bias/2,
+                'bsp2s_retrace_rate': retrace_rate,      # 回撤率
+                'bsp2s_break_bi_amp': break_bi.amp(),    # 破坏笔振幅
+                'bsp2s_bi_amp': bsp2s_bi.amp(),         # 当前笔振幅
+                'bsp2s_lv': bias / 2,                   # 类二级别
             }
-            self.add_bs(bs_type=BSP_TYPE.T2S, bi=bsp2s_bi, relate_bsp1=real_bsp1, feature_dict=feature_dict)  # type: ignore
+            # 生成 T2S 买卖点
+            self.add_bs(
+                bs_type=BSP_TYPE.T2S,
+                bi=bsp2s_bi,
+                relate_bsp1=real_bsp1,
+                feature_dict=feature_dict
+            )
+            # 步进 2，继续寻找更高级别的类二
             bias += 2
 
     def cal_seg_bs3point(self, seg_list: CSegListComm[LINE_TYPE], bi_list: LINE_LIST_TYPE):

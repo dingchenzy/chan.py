@@ -12,15 +12,15 @@ class CBi:
         # self.__begin_klc = begin_klc
         # self.__end_klc = end_klc
         self.__dir = None
-        self.__idx = idx
+        self.__idx = idx    # 笔的编号
         self.__type = BI_TYPE.STRICT
 
-        self.set(begin_klc, end_klc)
+        self.set(begin_klc, end_klc)    # 存储k线组合
 
-        self.__is_sure = is_sure
+        self.__is_sure = is_sure    # 表示笔是否确认，确认之后就不会再更改
         self.__sure_end: List[CKLine] = []
 
-        self.__seg_idx: Optional[int] = None
+        self.__seg_idx: Optional[int] = None    # 线段编号
 
         from Seg.Seg import CSeg
         self.parent_seg: Optional[CSeg[CBi]] = None  # 在哪个线段里面
@@ -28,8 +28,8 @@ class CBi:
         from BuySellPoint.BS_Point import CBS_Point
         self.bsp: Optional[CBS_Point] = None  # 尾部是不是买卖点
 
-        self.next: Optional[CBi] = None
-        self.pre: Optional[CBi] = None
+        self.next: Optional[CBi] = None # 后一笔
+        self.pre: Optional[CBi] = None  # 前一笔
 
     def clean_cache(self):
         self._memoize_cache = {}

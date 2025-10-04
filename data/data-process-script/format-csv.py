@@ -2,8 +2,8 @@ import pandas as pd
 from datetime import datetime
 
 # 直接指定文件名
-input_file = "../MES_data.csv"  # 替换为您的输入文件名
-output_file = "../../MES_1m.csv"  # 替换为您想要的输出文件名
+input_file = "MES_data_1m.csv"  # 替换为您的输入文件名
+output_file = "MES_1m.csv"  # 替换为您想要的输出文件名
 
 # 读取数据
 df = pd.read_csv(input_file)
