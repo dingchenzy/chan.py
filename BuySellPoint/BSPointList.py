@@ -210,6 +210,7 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
             'divergence_rate': divergence_rate,
             'bsp1_bi_amp': last_bi.amp(),
         }
+        
         self.add_bs(bs_type=BSP_TYPE.T1P, bi=last_bi, relate_bsp1=None, is_target_bsp=is_target_bsp, feature_dict=feature_dict)
 
     def cal_seg_bs2point(self, seg_list: CSegListComm[LINE_TYPE], bi_list: LINE_LIST_TYPE):
@@ -336,7 +337,6 @@ class CBSPointList(Generic[LINE_TYPE, LINE_LIST_TYPE]):
                 'bsp2s_bi_amp': bsp2s_bi.amp(),         # 当前笔振幅
                 'bsp2s_lv': bias / 2,                   # 类二级别
             }
-            # 生成 T2S 买卖点
             self.add_bs(
                 bs_type=BSP_TYPE.T2S,
                 bi=bsp2s_bi,

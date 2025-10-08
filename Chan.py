@@ -547,7 +547,7 @@ class CChan:
         # number=0则取全部bsp，从最新到最旧排序
         if idx is not None:
             return self[idx].bs_point_lst.get_latest_bsp(number)
-        # assert len(self.lv_list) == 1
+        assert len(self.lv_list) == 1
         return self[0].bs_point_lst.get_latest_bsp(number)
 
     def chan_dump_pickle(self, file_path):

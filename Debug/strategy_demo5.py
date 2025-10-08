@@ -123,6 +123,8 @@ if __name__ == "__main__":
                 "is_buy": last_bsp.is_buy,     # 是否为买点（True）或卖点（False）
                 "open_time": last_klu.time,    # 开仓时间（当前最新K线的时间）
             }
+            # 打印买卖点字典内容
+            print("bsp_dict 内容:", bsp_dict)
             # 为该买卖点添加策略特征（基于开仓K线的特征）
             bsp_dict[last_bsp.klu.idx]['feature'].add_feat(stragety_feature(last_klu))  # 开仓K线特征
             # 打印买卖点信息：时间和买卖方向
